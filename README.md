@@ -1,3 +1,5 @@
+# LDA document topic distribution processing based on Python README | 基于Python的LDA文档主题分布处理
+
 <div align="center">
 
 **Language / 语言选择:**
@@ -457,11 +459,3 @@ pyLDAvis.display(vis_data)  # 在Jupyter Notebook等支持HTML的环境中直接
 --- 模型评估 ---
 主题一致性得分: 0.5332
 ```
-
-<div align="center">
-
----
-
-**⬆️ [返回顶部](#multi-language-readme--多语言自述文件)**
-
-</div>
