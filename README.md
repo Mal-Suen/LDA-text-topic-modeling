@@ -1,3 +1,234 @@
+<div align="center">
+
+**Language / 语言选择:**
+[English](#english) | [中文](#中文)
+
+---
+
+</div>
+<a id="english"></a>
+
+## I. What is LDA?
+**LDA (Latent Dirichlet Allocation)** is a topic model used for text analysis, which helps us automatically discover hidden **topics** from a large amount of text. I will explain this model in the simplest way possible.
+Imagine you have a pile of articles (such as news, microblogs, papers, etc.). LDA is like a "topic detector" that can automatically identify the main topics being discussed in these articles. For example, if you analyze 100 sports news articles, LDA may find that these articles mainly revolve around topics such as "football", "basketball", and "tennis".
+
+### The application value of LDA
+In today's era of rapid development of large models, LDA (Latent Dirichlet Allocation) still holds its unique value and significance. As an unsupervised topic model, it is suitable for scenarios requiring topic discovery and interpretability, automatically discovering hidden topic structures from text data. Furthermore, the LDA model is simple, highly interpretable, with controllable parameter quantity, and is less prone to overfitting.
+LDA is still widely used in multiple fields in practice:
+- **Text classification**: Infer the distribution of document topics by training an LDA model for classification
+- **Topic Modeling**: Discovering the hidden topic structure in text data and revealing underlying patterns
+- **Public opinion analysis**: Identify popular topics and public concerns from social media
+- **Academic research**: analyzing research trends and domain developments in a large number of papers
+- **Policy analysis**: Conducting topic extraction and quantitative analysis on policy texts
+  
+### How does LDA work?
+Its core logic can be simplified as:
+1. **Topic refers to word distribution**
+   Each topic is defined as a probabilistic combination of a set of related words (for example, the "education" topic includes words such as "student" and "course", with their respective probabilities indicated).
+2. **Document generation process**
+   Assuming that each document is generated through the following steps:
+   - Randomly select multiple topics (e.g., 30% topic A, 70% topic B);
+   - Extract words from the word list of each selected topic based on probability, and finally compose a document.
+3. **Actual output**
+   **Topic Analysis**: Display high-frequency words under each topic (e.g., Topic 1: "education", "learning", "teacher");
+   **Document analysis**: Calculate the proportion of each topic in each document (e.g., Document 1: 40% Topic A, 60% Topic B).
+Without the need for manual data annotation, LDA can automatically discover the underlying structure in text, but it requires the number of topics (K value) to be preset.
+
+## II. Layered Logic of Code Implementation
+The code employs **object-oriented design** to break down the entire process of LDA modeling into modular steps, facilitating understanding and reuse.
+### 1. Initialization: Setting model parameters
+
+```python
+def __init__(self, num_topics=2, passes=10, random_state=42):
+    self.num_topics = num_topics  # Number of topics (e.g., 2 topics)
+    self.passes = passes          # training iterations (e.g. 10 times)
+    self.random_state = random_state  # Random seed (ensure reproducibility of results)
+    self.dictionary = None        # dictionary (mapping from word to ID)
+    self.corpus = None            # corpus (document frequency statistics)
+    self.lda_model = None         # LDA model object
+    self.documents = []          # Document list (raw text)
+```
+
+### 2. Data loading: Reading text from a file
+
+```python
+def load_corpus(self, file_path):
+    """Load corpus data"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            self.documents = [line.strip().split() for line in f if line.strip()]
+        logging.info(f"Successfully loaded {len(self.documents)} documents")
+        return self.documents
+    except FileNotFoundError:
+        logging.error(f"File does not exist: {file_path}")
+        return []
+```
+
+### 3.  Feature engineering: constructing dictionaries and corpora
+
+```python
+def build_dictionary_and_corpus(self):
+    """Build dictionary and corpus"""
+    if not self.documents:
+        logging.error("No document data available")
+        return None, None
+
+    # Create a dictionary, dictionary: vocabulary → ID mapping
+    self.dictionary = corpora.Dictionary(self.documents)
+    logging.info(f"Dictionary size: {len(self.dictionary)}")
+
+    # Build a corpus, corpus: document → word frequency statistics
+    self.corpus = [self.dictionary.doc2bow(doc) for doc in self.documents]
+    return self.dictionary, self.corpus
+```
+
+- **Dictionary (`Dictionary`)**: Assigns unique IDs to all words in the document, such as `{"Machine learning": 1, "Topic modeling": 2, "LDA": 3}`;
+- **Corpus**: Transform each document into a sparse representation of "word ID-word frequency", such as `[(1, 2), (2, 1), (3, 3)]` (indicating that "machine learning" appears 2 times, "topic modeling" appears 1 time, and "LDA" appears 3 times in the document).
+
+### 4.  Model training: Constructing LDA model
+
+```python
+def train_model(self):
+    """Train LDA model"""
+    if self.corpus is None:
+        self.build_dictionary_and_corpus()
+
+    self.lda_model = models.LdaModel(
+        corpus=self.corpus,
+        id2word=self.dictionary,
+        num_topics=self.num_topics,
+        passes=self.passes,
+        random_state=self.random_state
+    )
+    return self.lda_model
+```
+
+- **LDA model**: It learns the probability distributions of "document-topic" and "topic-word" through "word frequency statistics", ultimately generating a topic model;
+- **Parameter Function**:
+  - `num_topics`: Controls the number of topics (e.g., 2 topics);
+  - `passes`: The number of training iterations (e.g., 10 times, affecting the degree of model convergence);
+  - `random_state`: Random seed (ensures consistent results across different runs).
+
+### 5.  Result analysis: Extracting topic keywords and document topic distribution
+
+#### (1) Extracting topic keywords
+
+```python
+def get_topic_keywords(self, top_n=5):
+    """Obtain subject keywords"""
+    if self.lda_model is None:
+        self.train_model()
+
+    topic_keywords = {}
+    for topic_id in range(self.num_topics):
+        topic_terms = self.lda_model.show_topic(topic_id, topn=top_n)
+        topic_keywords[topic_id] = topic_terms
+
+    return topic_keywords
+```
+
+- **Function**: Obtain the `top_n` words (such as the top 5) with the highest probability under each topic to understand the content of the topic;
+- **Example**: If the keywords for Topic 0 are `["machine learning", "algorithm", "data"]`, then the topic can be interpreted as "machine learning-related topics".
+
+#### (2) Analyze document topic distribution
+
+```python
+def analyze_document_topics(self, top_n=3):
+    """Analyze document topic distribution"""
+    if self.lda_model is None:
+        self.train_model()
+
+    doc_topics = {}
+    for doc_id in range(len(self.documents)):
+        doc_bow = self.dictionary.doc2bow(self.documents[doc_id])
+        topic_dist = self.lda_model.get_document_topics(
+            doc_bow,
+            minimum_probability=0.0
+        )
+        top_topics = sorted(topic_dist, key=lambda x: x[1], reverse=True)[:top_n]
+        doc_topics[doc_id] = top_topics
+
+    return doc_topics
+```
+
+- **Function**: Analyze the probability of each document belonging to each topic and output the association between "document-topic";
+
+### 6.  Model evaluation: Coherence score
+
+```python
+def evaluate_model(self):
+    """Evaluate model performance"""
+    if self.lda_model is None:
+        self.train_model()
+
+    coherence_model = CoherenceModel(
+        model=self.lda_model,
+        texts=self.documents,
+        dictionary=self.dictionary,
+        coherence='c_v'
+    )
+    coherence_score = coherence_model.get_coherence()
+    return coherence_score
+```
+
+- **Consistency Score**: An indicator for measuring topic quality (the higher the score, the more "coherent" the topic);
+- **Principle**: Evaluate the semantic relevance of words within the topic. A higher score indicates a more reasonable topic.
+
+### 7. Generate visualization using pyLDAvis
+
+```python
+# Generate visualization using pyLDAvis
+vis_data = gensimvis.prepare(self.lda_model, self.corpus, self.dictionary)  # Generate visualization data
+
+# Save visualization as HTML file (optional)
+pyLDAvis.save_html(vis_data, "lda_visualization.html")  # Save to current directory
+
+# Direct visualization display (optional, requires an environment supporting HTML rendering)
+pyLDAvis.display(vis_data) # Display directly in HTML-supported environments such as Jupyter Notebook
+```
+
+## III. Result Demonstration
+
+**Test data**
+
+```
+New Year's Eve Gathering
+New Year's program schedule, Spring Festival Gala, prosperity
+The broader market is declining, with the stock market seeing a decline in retail investors
+Falling stock market, making money
+Golden Monkey, Spring Festival, prosperity, New Year
+New car, New Year, New Year's goods, New Spring
+stock market rebound decline
+Stock market, retail investors, making money
+New Year, watch, Spring Festival Gala
+The market declines, with retail investors
+```
+
+**Output result**
+
+```
+--- Key Topics ---
+Topic 0: Spring Festival, New Year, Gala, New Year's goods, Chinese New Year
+Topic 1: Decline, stock market, retail investors, broad market, making money
+
+--- Document Topic Distribution ---
+Document 0: Topic 0 (0.915) Topic 1 (0.085)
+Document 1: Topic 0 (0.914) Topic 1 (0.086)
+Document 2: Topic 1 (0.899) Topic 0 (0.101)
+Document 3: Topic 1 (0.874) Topic 0 (0.126)
+Document 4: Topic 0 (0.897) Topic 1 (0.103)
+Document 5: Topic 0 (0.897) Topic 1 (0.103)
+Document 6: Topic 1 (0.873) Topic 0 (0.127)
+Document 7: Topic 1 (0.874) Topic 0 (0.126)
+Document 8: Topic 0 (0.914) Topic 1 (0.086)
+Document 9: Topic 1 (0.874) Topic 0 (0.126)
+
+--- Model Evaluation ---
+Topic consistency score: 0.5332
+```
+
+<a id="中文"></a>
+
 ## 一、什么是LDA？
 
 **LDA（Latent Dirichlet Allocation，隐含狄利克雷分布）**是一种用于文本分析的主题模型，它可以帮助我们从大量文本中自动发现隐藏的**主题**。下面我用最通俗的方式解释这个模型。
@@ -227,3 +458,11 @@ pyLDAvis.display(vis_data)  # 在Jupyter Notebook等支持HTML的环境中直接
 主题一致性得分: 0.5332
 ```
 
+<div align="center">
+
+---
+
+**⬆️ [返回顶部](#LDA document topic distribution processing based on Python
+-readme--基于Python的LDA文档主题分布处理)**
+
+</div>
